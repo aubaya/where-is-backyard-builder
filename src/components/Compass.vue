@@ -38,11 +38,18 @@ let _lon: number | undefined = undefined;
 // Text values
 const name = ref<string>('Backyard Builder');
 const distance = ref<string>('');
+const error = ref<string | undefined>(undefined);
 
 //#region Error handling
 const fail = (msg: string | undefined) => {
-    name.value = 'Could not get your current location';
-    distance.value = msg ? `${msg}. Try adding this app to your homescreen.` : 'Try adding this app to your homescreen.';
+    name.value = 'Error';
+    distance.value = 'Cannot get location / orientation';
+    let completeMsg = 'Try to add this site to your home screen and allow location access.';
+    if (msg) {
+        completeMsg = `${msg} ${completeMsg}`;
+    }
+    error.value = completeMsg;
+    initialized.value = true;
 }
 //#endregion
 
@@ -113,56 +120,39 @@ const rotationRule = computed(() => `rotate(${arrowRotation.value}deg)`);
 
 // ISH
 const startOrientationTrackingV2 = () => {
-    if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
-            (DeviceOrientationEvent as any).requestPermission()
-                .then((permissionState: any) => {
-                    print(`Permission state: ${permissionState}`);
-                    if (permissionState === 'granted') {
-                        window.addEventListener('deviceorientation', updateOrientation);
-                        initGeolocation().then(() => {
-                            initialized.value = true;
-                        }).catch((error) => {
-                            dump(error);
-                        });
-                    } else {
-                        print('Permission to access device orientation was denied.');
-                    }
-                })
-                .catch((error: any) => {
-                    dump(error);
-                });
-        } else {
-            print('Non-iOS device or permission request not needed.');
-            // Non-iOS devices
-            window.addEventListener('deviceorientation', updateOrientation);
-        }
-}
+    if (typeof DeviceOrientationEvent === 'undefined') {
+        print('DeviceOrientationEvent is not supported on this device.');
+        fail("Cannot get device orientation.");
+        return;
+    }
 
-// const startOrientationTracking = (): Promise<void> => {
-//     return new Promise((resolve, reject) => {
-//         // iOS 13+ requires permission to access device orientation
-//         if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
-//             (DeviceOrientationEvent as any).requestPermission()
-//                 .then((permissionState: any) => {
-//                     if (permissionState === 'granted') {
-//                         window.addEventListener('deviceorientation', updateOrientation);
-//                         resolve();
-//                     } else {
-//                         print('Permission to access device orientation was denied.');
-//                         reject(new Error('Permission to access device orientation was denied.'));
-//                     }
-//                 })
-//                 .catch((error: any) => {
-//                     print(error);
-//                     reject(error);
-//                 });
-//         } else {
-//             // Non-iOS devices
-//             window.addEventListener('deviceorientation', updateOrientation);
-//             resolve();
-//         }
-//     });
-// };
+    if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+        (DeviceOrientationEvent as any).requestPermission()
+            .then((permissionState: any) => {
+                print(`Permission state: ${permissionState}`);
+                if (permissionState === 'granted') {
+                    window.addEventListener('deviceorientation', updateOrientation);
+                    initGeolocation().then(() => {
+                        initialized.value = true;
+                    }).catch((error) => {
+                        dump(error);
+                        fail(error.message);
+                    });
+                } else {
+                    print('Permission to access device orientation was denied.');
+                    fail('Permission to access device orientation was denied.');
+                }
+            })
+            .catch((error: any) => {
+                dump(error);
+                fail(error.message);
+            });
+    } else {
+        print('Non-iOS device or permission request not needed.');
+        // Non-iOS devices
+        window.addEventListener('deviceorientation', updateOrientation);
+    }
+}
 
 const updateOrientation = (event: DeviceOrientationEvent) => {
     // If orientation data is not absolute or alpha is null, compass is not available
@@ -244,6 +234,7 @@ const updateOrientation = (event: DeviceOrientationEvent) => {
     </div>
     <span id="name">{{ name }}</span>
     <span id="distance">{{ distance }}</span>
+    <span>{{ error }}</span>
     <a href="#" @click="startOrientationTrackingV2" :class="initialized ? 'hidden' : ''" style="display: block; margin-top: 1rem; color: gray;">(Start tracking)</a>
     <div id="debug" v-if="debug">
     </div>
@@ -299,15 +290,15 @@ const updateOrientation = (event: DeviceOrientationEvent) => {
 
 #name {
     display: block;
-    font-size: 1.5rem;
+    font-size: 2.5rem;
     margin-top: 1rem;
     font-weight: bold;
 }
 
 #distance {
     display: block;
-    font-size: 1.2rem;
-    margin-top: 0.5rem;
-    color: gray;
+    font-size: 2rem;
+    margin-top: 0rem;
+    color: #535353;
 }
 </style>
