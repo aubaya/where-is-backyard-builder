@@ -3,7 +3,7 @@ import billy from '../assets/billy.png';
 import arrow from '../assets/arrow.png';
 import { computed, ref } from 'vue';
 
-const debug = true;
+const debug = false;
 const dump = (obj: any) => {
     if (!debug) return;
     const debugDiv = document.getElementById('debug');
