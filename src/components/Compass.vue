@@ -3,9 +3,12 @@ import billy from '../assets/billy.png';
 import arrow from '../assets/arrow.png';
 import { computed, ref } from 'vue';
 
-const factor = 2;
+const factor = 1.0;
 const billyHeight = `${200 * factor}px`;
 const arrowDimension = `${300 * factor}px`;
+
+// Initialization launched
+const initialized = ref(false);
 
 // Backyard Builder coordinates
 const bbLat = 37.551447;
@@ -27,36 +30,41 @@ const fail = (msg: string | undefined) => {
 //#endregion
 
 //#region Geolocation
-const initGeolocation = () => {
-    if (!navigator.geolocation) {
-        fail(undefined);
-        return;
-    }
+const initGeolocation = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            fail(undefined);
+            reject(new Error('Geolocation not supported'));
+            return;
+        }
 
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            _lat = position.coords.latitude;
-            _lon = position.coords.longitude;
-            updateDistance();
-        },
-        (error) => {
-            fail(error.message);
-        },
-        { enableHighAccuracy: true }
-    );
-
-    // Watch position for updates
-    navigator.geolocation.watchPosition(
-        (position) => {
-            _lat = position.coords.latitude;
-            _lon = position.coords.longitude;
-            updateDistance();
-        },
-        (error) => {
-            fail(error.message);
-        },
-        { enableHighAccuracy: true }
-    );
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                _lat = position.coords.latitude;
+                _lon = position.coords.longitude;
+                updateDistance();
+                resolve();
+                
+                // Watch position for updates after initial success
+                navigator.geolocation.watchPosition(
+                    (position) => {
+                        _lat = position.coords.latitude;
+                        _lon = position.coords.longitude;
+                        updateDistance();
+                    },
+                    (error) => {
+                        fail(error.message);
+                    },
+                    { enableHighAccuracy: true }
+                );
+            },
+            (error) => {
+                fail(error.message);
+                reject(error);
+            },
+            { enableHighAccuracy: true }
+        );
+    });
 };
 
 const updateDistance = () => {
@@ -86,27 +94,46 @@ const compassAvailable = ref(false);
 const arrowRotation = ref(0);
 const rotationRule = computed(() => `rotate(${arrowRotation.value}deg)`);
 
-const startOrientationTracking = () => {
-    // iOS 13+ requires permission to access device orientation
-    if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
-        (DeviceOrientationEvent as any).requestPermission()
-            .then((permissionState: any) => {
-                if (permissionState === 'granted') {
-                    window.addEventListener('deviceorientation', updateOrientation);
-                } else {
-                    console.warn('Permission to access device orientation was denied.');
-                }
-            })
-            .catch(console.error);
-    } else {
-        // Non-iOS devices
-        window.addEventListener('deviceorientation', updateOrientation);
-    }
+const startOrientationTracking = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        // iOS 13+ requires permission to access device orientation
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+            (DeviceOrientationEvent as any).requestPermission()
+                .then((permissionState: any) => {
+                    if (permissionState === 'granted') {
+                        window.addEventListener('deviceorientation', updateOrientation);
+                        resolve();
+                    } else {
+                        console.warn('Permission to access device orientation was denied.');
+                        reject(new Error('Permission to access device orientation was denied.'));
+                    }
+                })
+                .catch((error: any) => {
+                    console.error(error);
+                    reject(error);
+                });
+        } else {
+            // Non-iOS devices
+            window.addEventListener('deviceorientation', updateOrientation);
+            resolve();
+        }
+    });
 };
 
 const updateOrientation = (event: DeviceOrientationEvent) => {
     // If orientation data is not absolute or alpha is null, compass is not available
-    if (!event.absolute || event.alpha === null) {
+    // (unless we're on iOS, because WebKit)
+    let _alpha: number | undefined = undefined;
+    
+    if ((event as any).webkitCompassHeading) {
+        _alpha = (event as any).webkitCompassHeading; // iOS
+    }
+
+    if (event.absolute && event.alpha !== null && event.alpha !== undefined) {
+        _alpha = event.alpha; // Non-iOS   
+    }
+
+    if (_alpha === undefined) {
         compassAvailable.value = false;
         window.removeEventListener('deviceorientation', updateOrientation);
         return;
@@ -152,22 +179,26 @@ const updateOrientation = (event: DeviceOrientationEvent) => {
 //#endregion
 
 //#region Initialization
-const init = () => {
-    Promise.all([
-        initGeolocation(),
-        startOrientationTracking(),
-    ]);
+const init = async () => {
+    initialized.value = true;
+    try {
+        await initGeolocation();
+        await startOrientationTracking();
+    } catch (e) {
+        console.error('Failed to initialize geolocation:', e);
+    }
 };
 //#endregion
 </script>
 
 <template>
     <div id="center-content">
-        <img id="icon" :src="billy" @click="init" title="Click to initialize compass">
+        <img id="icon" :src="billy" title="Click to initialize compass">
         <img id="arrow" :class="!compassAvailable ? 'hidden' : ''" :src="arrow">
     </div>
     <span id="name">{{ name }}</span>
     <span id="distance">{{ distance }}</span>
+    <a href="#" @click="init" :class="initialized ? 'hidden' : ''" style="display: block; margin-top: 1rem; color: gray;">(Start tracking)</a>
 </template>
 
 <style scoped>

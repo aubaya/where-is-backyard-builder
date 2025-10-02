@@ -33,8 +33,8 @@ export default defineConfig({
       type: 'module',
     },
   })],
-  base: '/where-is-backyard-builder/',
-  build: {
-    outDir: 'dist'
-  }
+  // base: '/where-is-backyard-builder/',
+  // build: {
+  //   outDir: 'dist'
+  // }
 })
