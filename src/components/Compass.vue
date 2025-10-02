@@ -182,9 +182,9 @@ const updateOrientation = (event: DeviceOrientationEvent) => {
     }
 
     if (_alpha === undefined) {
-        print('Device orientation data is not available. No alpha');
+        print('Waiting.... No compass data available yet.');
         compassAvailable.value = false;
-        window.removeEventListener('deviceorientation', updateOrientation);
+        // window.removeEventListener('deviceorientation', updateOrientation);
         return;
     }
 
