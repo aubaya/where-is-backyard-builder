@@ -86,6 +86,24 @@ const compassAvailable = ref(false);
 const arrowRotation = ref(0);
 const rotationRule = computed(() => `rotate(${arrowRotation.value}deg)`);
 
+const startOrientationTracking = () => {
+    // iOS 13+ requires permission to access device orientation
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+        (DeviceOrientationEvent as any).requestPermission()
+            .then((permissionState: any) => {
+                if (permissionState === 'granted') {
+                    window.addEventListener('deviceorientation', updateOrientation);
+                } else {
+                    console.warn('Permission to access device orientation was denied.');
+                }
+            })
+            .catch(console.error);
+    } else {
+        // Non-iOS devices
+        window.addEventListener('deviceorientation', updateOrientation);
+    }
+};
+
 const updateOrientation = (event: DeviceOrientationEvent) => {
     // If orientation data is not absolute or alpha is null, compass is not available
     if (!event.absolute || event.alpha === null) {
@@ -130,15 +148,6 @@ const updateOrientation = (event: DeviceOrientationEvent) => {
     // Step 6: Update the arrow rotation to point towards the target
     arrowRotation.value = relativeBearing;
 };
-
-const startOrientationTracking = () => {
-  if (!window.DeviceOrientationEvent) {
-    console.warn('Device orientation is not supported by this browser');
-    return;
-  }
-
-  window.addEventListener('deviceorientation', updateOrientation);
-}
 
 //#endregion
 
