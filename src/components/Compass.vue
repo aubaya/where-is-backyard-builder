@@ -111,31 +111,58 @@ const compassAvailable = ref(false);
 const arrowRotation = ref(0);
 const rotationRule = computed(() => `rotate(${arrowRotation.value}deg)`);
 
-const startOrientationTracking = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        // iOS 13+ requires permission to access device orientation
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+// ISH
+const startOrientationTrackingV2 = () => {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
             (DeviceOrientationEvent as any).requestPermission()
                 .then((permissionState: any) => {
+                    print(`Permission state: ${permissionState}`);
                     if (permissionState === 'granted') {
                         window.addEventListener('deviceorientation', updateOrientation);
-                        resolve();
+                        initGeolocation().then(() => {
+                            initialized.value = true;
+                        }).catch((error) => {
+                            dump(error);
+                        });
                     } else {
                         print('Permission to access device orientation was denied.');
-                        reject(new Error('Permission to access device orientation was denied.'));
                     }
                 })
                 .catch((error: any) => {
-                    print(error);
-                    reject(error);
+                    dump(error);
                 });
         } else {
+            print('Non-iOS device or permission request not needed.');
             // Non-iOS devices
             window.addEventListener('deviceorientation', updateOrientation);
-            resolve();
         }
-    });
-};
+}
+
+// const startOrientationTracking = (): Promise<void> => {
+//     return new Promise((resolve, reject) => {
+//         // iOS 13+ requires permission to access device orientation
+//         if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+//             (DeviceOrientationEvent as any).requestPermission()
+//                 .then((permissionState: any) => {
+//                     if (permissionState === 'granted') {
+//                         window.addEventListener('deviceorientation', updateOrientation);
+//                         resolve();
+//                     } else {
+//                         print('Permission to access device orientation was denied.');
+//                         reject(new Error('Permission to access device orientation was denied.'));
+//                     }
+//                 })
+//                 .catch((error: any) => {
+//                     print(error);
+//                     reject(error);
+//                 });
+//         } else {
+//             // Non-iOS devices
+//             window.addEventListener('deviceorientation', updateOrientation);
+//             resolve();
+//         }
+//     });
+// };
 
 const updateOrientation = (event: DeviceOrientationEvent) => {
     // If orientation data is not absolute or alpha is null, compass is not available
@@ -204,16 +231,9 @@ const updateOrientation = (event: DeviceOrientationEvent) => {
 //#endregion
 
 //#region Initialization
-const init = async () => {
-    initialized.value = true;
-    try {
-        await initGeolocation();
-        await startOrientationTracking();
-    } catch (e) {
-        print('Failed to initialize geolocation:');
-        dump(e);
-    }
-};
+// const init = async () => {
+//     startOrientationTrackingV2();
+// };
 //#endregion
 </script>
 
@@ -224,7 +244,7 @@ const init = async () => {
     </div>
     <span id="name">{{ name }}</span>
     <span id="distance">{{ distance }}</span>
-    <a href="#" @click="init" :class="initialized ? 'hidden' : ''" style="display: block; margin-top: 1rem; color: gray;">(Start tracking)</a>
+    <a href="#" @click="startOrientationTrackingV2" :class="initialized ? 'hidden' : ''" style="display: block; margin-top: 1rem; color: gray;">(Start tracking)</a>
     <div id="debug" v-if="debug">
     </div>
 </template>
