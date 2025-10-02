@@ -15,7 +15,7 @@ export default defineConfig({
 
     manifest: {
       name: 'Where is Backyard Builder?',
-      short_name: 'WhereIsBB',
+      short_name: 'Where is BB?',
       description: 'Where is Backyard Builder? Where is Billy?',
       theme_color: '#ffffff',
     },
