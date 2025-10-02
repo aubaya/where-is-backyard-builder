@@ -3,6 +3,23 @@ import billy from '../assets/billy.png';
 import arrow from '../assets/arrow.png';
 import { computed, ref } from 'vue';
 
+const debug = true;
+const dump = (obj: any) => {
+    if (!debug) return;
+    const debugDiv = document.getElementById('debug');
+    if (debugDiv) {
+        debugDiv.innerText += JSON.stringify(obj, null, 2) + '\n';
+    }
+}
+
+const print = (msg: string) => {
+    if (!debug) return;
+    const debugDiv = document.getElementById('debug');
+    if (debugDiv) {
+        debugDiv.innerText += msg + '\n';
+    }
+}
+
 const factor = 1.0;
 const billyHeight = `${200 * factor}px`;
 const arrowDimension = `${300 * factor}px`;
@@ -104,12 +121,12 @@ const startOrientationTracking = (): Promise<void> => {
                         window.addEventListener('deviceorientation', updateOrientation);
                         resolve();
                     } else {
-                        console.warn('Permission to access device orientation was denied.');
+                        print('Permission to access device orientation was denied.');
                         reject(new Error('Permission to access device orientation was denied.'));
                     }
                 })
                 .catch((error: any) => {
-                    console.error(error);
+                    print(error);
                     reject(error);
                 });
         } else {
@@ -125,15 +142,20 @@ const updateOrientation = (event: DeviceOrientationEvent) => {
     // (unless we're on iOS, because WebKit)
     let _alpha: number | undefined = undefined;
     
+    dump(event);
+
     if ((event as any).webkitCompassHeading) {
         _alpha = (event as any).webkitCompassHeading; // iOS
+        print(`iOS detected, using webkitCompassHeading: ${_alpha}`);
     }
 
     if (event.absolute && event.alpha !== null && event.alpha !== undefined) {
-        _alpha = event.alpha; // Non-iOS   
+        _alpha = event.alpha; // Non-iOS
+        print(`Non-iOS detected, using alpha: ${_alpha}`);
     }
 
     if (_alpha === undefined) {
+        print('Device orientation data is not available. No alpha');
         compassAvailable.value = false;
         window.removeEventListener('deviceorientation', updateOrientation);
         return;
@@ -141,9 +163,12 @@ const updateOrientation = (event: DeviceOrientationEvent) => {
 
     // Step 0: Ensure we have user location data
     if (_lat === undefined || _lon === undefined) {
-        console.warn('User location is not available yet.');
+        print('No user location data available yet.');
+        print('User location is not available yet.');
         return;
     }
+
+    print(`User location: lat=${_lat}, lon=${_lon}. Ya!`);
     
     // Step 0.5: Mark compass as available
     compassAvailable.value = true;
@@ -185,7 +210,8 @@ const init = async () => {
         await initGeolocation();
         await startOrientationTracking();
     } catch (e) {
-        console.error('Failed to initialize geolocation:', e);
+        print('Failed to initialize geolocation:');
+        dump(e);
     }
 };
 //#endregion
@@ -199,11 +225,26 @@ const init = async () => {
     <span id="name">{{ name }}</span>
     <span id="distance">{{ distance }}</span>
     <a href="#" @click="init" :class="initialized ? 'hidden' : ''" style="display: block; margin-top: 1rem; color: gray;">(Start tracking)</a>
+    <div id="debug" v-if="debug">
+    </div>
 </template>
 
 <style scoped>
 .hidden {
     visibility: hidden;
+}
+
+#debug {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 0.5rem;
+    font-size: 0.8rem;
+    max-width: 100%;
+    max-height: 30vh;
+    overflow: scroll;
+    z-index: 10;
 }
 
 #center-content {
