@@ -165,7 +165,7 @@ const updateOrientation = (event: DeviceOrientationEvent) => {
 
     // Step 4: Calculate the relative bearing by subtracting device orientation
     // This tells us which direction to turn from where the device is currently pointing
-    let relativeBearing = bearingFromNorth - event.alpha;
+    let relativeBearing = bearingFromNorth - _alpha;
 
     // Step 5: Normalize the relative bearing to -180 to +180 range
     // Positive means turn right, negative means turn left
